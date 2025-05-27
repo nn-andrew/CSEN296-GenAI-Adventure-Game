@@ -1,0 +1,25 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.env/
+
+# VS Code / PyCharm config
+.vscode/
+.idea/
+
+# VCRpy cassettes
+fixtures/vcr_cassettes/
+
+# Mac system files
+.DS_Storep
+
+# Logs or local output
+*.log
+*.tmp
+*.bak
+
+*.env
