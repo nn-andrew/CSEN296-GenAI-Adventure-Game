@@ -299,3 +299,8 @@ for scene_name in scene_names:
             y = float(parts[2].strip())
             
             scene_to_items[scene_name][item_name] = (x, y)
+
+with open("game_data.json", "w") as f:
+    json.dump({
+        
+    })
