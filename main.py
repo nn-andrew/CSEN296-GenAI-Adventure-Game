@@ -1,3 +1,7 @@
+import argparse
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import requests
 import json
 # from diffusers import DiffusionPipeline
@@ -116,59 +120,63 @@ def call_ollama(prompt):
 
     return "Error: " + str(response.status_code) + " " + response.text
 
-def generate_prompt_from_user_input():
-    description = input("Describe the point-and-click adventure: ")
+def generate_prompt_from_description(description):
     # prompt = f"Your response should follow the following format, and nothing else should be in your response: '[object1],[object2],[object3],[object4],[object5]'. In that format, list the 5 most important objects to depict this scene: {description}"
     return """You will be given a description of a point-and-click adventure game. Based on that description, generate a structured JSON object that includes:
 
-    1. **Three interactable objects**, each with:
-    - A name
-    - A description
-    - A list of allowed interaction_names (from: "Talk")
-    - An explanation of how the object helps solve a puzzle (if it does)
+    1. Two scenes, each with:
+    - scene_description: a detailed prompt suitable for SD3 image generation.
+    - items: a dictionary where each key is the item name. one of the items has to be a path to the other scene (for example a door or walkway or alley)
+    - description: should be short with some light humor, 8 words or less
+    - interactions: a dictionary where keys are interaction types (e.g., "talk", "use", "look", "pick up") and values are the corresponding dialogue or behavior
+    - the name of the starting scene should be prefixed with "START_"
 
-    2. **Two detailed scene prompts that relate to the provided description** suitable for use with SD3 image generation.
+    2. A single puzzle, with:
+    - id: a unique identifier like "puzzle_1"
+    - type: one of "item_combination", "item_usage", "dialog", or "environment"
+    - description: a short summary of the puzzle
+    - requirements: item(s), interaction(s), or conditions required to solve the puzzle.
+    - result: must be exactly:
+    "result": {{
+        "unlocked_area": {{name of scene unlocked}}
+    }}
+    
+    The puzzle always results in unlocking the second scene.
 
-    The JSON format must match this structure:
-    ```json {{
-        "scenes": {{
-            "scene_name1": {{
-                "scene_description": "Text-to-image prompt for SD3 scene 1",
-                "items": [
-                    {{
-                        "name": "item1",
-                        "description": "Description of item1",
-                        "allowed_interactions": {{
-                            "talk": "Dialogue for item1"
-                        }}
-                    }},
-                    {{
-                        "name": "item2",
-                        "description": "Description of item2",
-                        "allowed_interactions": {{
-                            "talk": "Dialogue for item2"
-                        }}
+    The output must exactly match this format:
+
+    {{
+    "scenes": {{
+        {{scene_name}}: {{
+            "scene_description": {{Descriptive text-to-image prompt for this scene for SD3}},
+            "items": {{
+                {{item_name}}: {{
+                    "description": {{Short humorous description}},
+                    "interactions": {{
+                        {{usage_type}}: {{dialogue after performing the interaction}}
                     }}
-                ]
-            }},
-            "scene_name2": {{
-                "scene_description": "Text-to-image prompt for SD3 scene 2",
-                "items": [
-                    {{
-                        "name": "item3",
-                        "description": "Description of item3",
-                        "allowed_interactions": {{
-                            "talk": "Dialogue for item3"
-                        }}
-                    }}
-                ]
-            }},
+                }}
+            }}
+        }},
+    }},
+    "puzzles": [
+        {{
+            "id": {{puzzle_id}},
+            "type": {{usage_type}},
+            "description": {{Clue for the puzzle, 8 words or less}},
+            "completion_text: "{{Text to display when the puzzle is solved, 8 words or less}}",
+            "requirements": [
+                [{{usage_type}}, {{item_name}}],
+            ],
+            "result": {{
+                "unlocked_area": {{scene_name}}
+            }}
         }}
+    ]
     }}
 
     Description: {}
-
-    Now generate the JSON output. Don't say anything else.
+    Now generate the JSON output. Do not add any other text.
     """.format(description)
 
 @my_vcr.use_cassette('fixtures/vcr_cassettes/sd3.yaml', match_on=['method', 'uri', 'clean_multipart'], record_mode=RECORD_MODE)
@@ -197,7 +205,7 @@ def call_sd3(prompt, output_filename="sd3_output"):
 def generate_images_for_scene_and_icons(scene_name, scene_description, scene_items):
     filenames = []
     
-    scene_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). {scene_description}, with several items: {', '.join(scene_items)}"
+    scene_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). {scene_description}. The following items are clearly visible: {', '.join(scene_items)}"
     output_filename = f"scene_{scene_name}"
     filenames.append(output_filename)
 
@@ -213,8 +221,21 @@ def generate_images_for_scene_and_icons(scene_name, scene_description, scene_ite
 
     return filenames
 
+@my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'body'], record_mode=RECORD_MODE)
+def call_openai(prompt):
+    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    return response.choices[0].message.content
+
 @my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'text_only'], record_mode=RECORD_MODE)
-def call_openai(image_filename_without_extension, prompt):
+def call_openai_with_image(image_filename_without_extension, prompt):
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     full_image_path = f"./{image_filename_without_extension}.jpeg"
@@ -250,57 +271,54 @@ def call_openai(image_filename_without_extension, prompt):
 def get_item_coordinates_in_image(image_filename, item_names):
     prompt = f"in terms of distance ratio between left and right, top and bottom of the image (starting from left and top), where are the following items? (Format your response as lines of object_name,x,y and nothing else in your response. For example, object1_name,0.5,0.5\nobject2_name,0.5,0.5) Items: {','.join(item_names)}"
     
-    return call_openai(image_filename, prompt)
+    return call_openai_with_image(image_filename, prompt)
 
-# *** STEP 1 ***
-# night time jazz lounge
-prompt = generate_prompt_from_user_input()
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate game_data.json + images for PnC adventure."
+    )
+    parser.add_argument(
+        "--desc",
+        type=str,
+        help="A short text description of your scene"
+    )
+    args = parser.parse_args()
 
-ollama_response_str = call_ollama(prompt)
-ollama_response_json = json.loads(ollama_response_str)
+    # read from --desc or stdin
+    if args.desc:
+        desc = args.desc
+    else:
+        desc = sys.stdin.read().strip()
 
-# Parse scenes from JSON response
-scenes = ollama_response_json["scenes"]
-scene_names = []
-i = 0
-limit = 2
-for scene_name in ollama_response_json["scenes"]:
-    if i >= limit:
-        break
-    scene_names.append(scene_name)
-    i += 1
+    prompt = generate_prompt_from_description(desc)
+    openai_response_str = call_openai(prompt)
+    game_data = json.loads(openai_response_str)
 
-# # *** STEP 2 ***
-# # call_sdxl(scenes)
-# # call_sdxl(icons, category="icon", height=512, width=512, num_inference_steps=25)
-all_item_names = []
-scene_to_items: Dict[str, Dict[str, Tuple[float, float]]] = {} # {scene_name: {item_name: (x, y)}}
-for scene_name in scene_names:
-    item_names = [item["name"] for item in scenes[scene_name]["items"]]
-    all_item_names.extend(item_names)
+    scenes = list(game_data["scenes"].items())
+    for scene_name, info in scenes:
+        item_names = list(info["items"].keys())
+        filenames = generate_images_for_scene_and_icons(
+            scene_name, info["scene_description"], item_names
+        )
 
-    scene_description = scenes[scene_name]["scene_description"]
+        scene_filename = filenames[0]
+        item_coords_str = get_item_coordinates_in_image(scene_filename, item_names)
+        # scene_to_items[scene_name] = {}
+        for line in item_coords_str.splitlines():
+            parts = line.strip().split(',')
+            if len(parts) == 3:
+                item_name = parts[0].strip()
+                x = float(parts[1].strip())
+                y = float(parts[2].strip())
+                
+                game_data["scenes"][scene_name]["items"][item_name]["coordinates"] = (x, y)
 
-    filenames = generate_images_for_scene_and_icons(scene_name, scene_description, item_names)
-    scene_filename = filenames[0]
-    
-    ''' e.g.
-    item1_name,0.5,0.5
-    item2_name,0.3,0.7
-    '''
-    item_coords_str = get_item_coordinates_in_image(scene_filename, item_names)
-    print(item_coords_str)
-    scene_to_items[scene_name] = {}
-    for line in item_coords_str.splitlines():
-        parts = line.strip().split(',')
-        if len(parts) == 3:
-            item_name = parts[0].strip()
-            x = float(parts[1].strip())
-            y = float(parts[2].strip())
-            
-            scene_to_items[scene_name][item_name] = (x, y)
+                # scene_to_items[scene_name][item_name] = (x, y)
 
-with open("game_data.json", "w") as f:
-    json.dump({
-        
-    })
+
+    # write out enriched JSON (with coordinates already injected)
+    with open("game_data.json", "w") as f:
+        json.dump(game_data, f, indent=2)
+
+if __name__ == "__main__":
+    main()

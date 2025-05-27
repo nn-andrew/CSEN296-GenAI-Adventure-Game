@@ -49,3 +49,7 @@ System generates
 Nancy drew is investigating the roman colosseum at night. There are fireworks in the sky
 
 mystical fountain in a dark cave with ambient light with foliage
+
+
+
+TODO: move images into a ./res folder

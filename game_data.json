@@ -1,0 +1,67 @@
+{
+  "scenes": {
+    "START_Pirate_Ship": {
+      "scene_description": "A picturesque pirate ship lazily floating down a river inside a grand mansion, chandeliers casting sparkling light over its majestic decks.",
+      "items": {
+        "Ship_Wheel": {
+          "description": "Looks like it's pirating time!",
+          "interactions": {
+            "use": "The wheel spins freely. Perhaps it's not connected?",
+            "look": "A beautifully crafted wooden ship wheel, catching the light.",
+            "pick up": "It's bolted down. No pirating for you!"
+          },
+          "coordinates": [
+            0.48,
+            0.55
+          ]
+        },
+        "Secret_Door": {
+          "description": "A concealed entrance. Quite mansion-y!",
+          "interactions": {
+            "use": "It's locked. Is there a key?",
+            "look": "A well-camouflaged secret door in the ship's hull.",
+            "pick up": "You cannot pick up a door. Nice try!"
+          },
+          "coordinates": [
+            0.1,
+            0.45
+          ]
+        }
+      }
+    },
+    "Mansion_Interior": {
+      "scene_description": "The magnificent interior of the mansion, adorned with regal chandeliers and elegant furniture, looming over the river and the pirate ship below.",
+      "items": {
+        "Chandelier": {
+          "description": "Classy illumination!",
+          "interactions": {
+            "use": "It's high. Even for a jump.",
+            "look": "A stunning chandelier. Crystal clear.",
+            "pick up": "You can't lift a chandelier! Seriously?"
+          },
+          "coordinates": [
+            0.5,
+            0.2
+          ]
+        }
+      }
+    }
+  },
+  "puzzles": [
+    {
+      "id": "puzzle_1",
+      "type": "item_usage",
+      "description": "Unlock the secret door",
+      "completion_text": "Ahoy, door's open!",
+      "requirements": [
+        [
+          "use",
+          "Ship_Wheel"
+        ]
+      ],
+      "result": {
+        "unlocked_area": "Mansion_Interior"
+      }
+    }
+  ]
+}
