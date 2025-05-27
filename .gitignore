@@ -11,6 +11,9 @@ venv/
 .vscode/
 .idea/
 
+# Images
+*.jpeg
+
 # VCRpy cassettes
 fixtures/vcr_cassettes/
 

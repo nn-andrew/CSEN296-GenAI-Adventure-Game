@@ -5,12 +5,68 @@ import json
 import openai
 import base64
 from typing import Dict, Tuple
+
 import vcr
+import re
+from functools import lru_cache
 
 from dotenv import load_dotenv
 import os
 load_dotenv()
 
+# TODO: Function not needed anymore, can use match_text_only() to compare responses instead
+@lru_cache(maxsize=None)
+def get_base64_image(image_path):
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+    
+my_vcr = vcr.VCR()
+def match_text_only(r1, r2):
+    try:
+        b1 = json.loads(r1.body)
+        b2 = json.loads(r2.body)
+
+        def extract_text(msg_list):
+            return [entry["text"] for m in msg_list for entry in m["content"] if entry["type"] == "text"]
+
+        text1 = extract_text(b1["messages"])
+        text2 = extract_text(b2["messages"])
+
+        return text1 == text2
+    except Exception:
+        return False
+
+def normalize_multipart(body_bytes):
+    # Decode bytes safely
+    body = body_bytes.decode('utf-8', errors='ignore')
+    
+    # Strip dynamic boundary lines
+    # Replace boundary markers like: --{boundary}\r\n
+    body = re.sub(r"--[a-f0-9]{32,}(\r\n|\n)?", "--<boundary>\n", body)
+    
+    # Remove Content-Disposition lines
+    body = re.sub(r"Content-Disposition:.*?\r?\n", "", body, flags=re.IGNORECASE)
+    
+    # Remove any remaining headers inside the parts
+    body = re.sub(r"Content-Type:.*?\r?\n", "", body, flags=re.IGNORECASE)
+
+    # Remove any empty lines and normalize whitespace
+    body = "\n".join(line.strip() for line in body.strip().splitlines() if line.strip())
+
+    return body
+
+def multipart_body_matcher(r1, r2):
+    try:
+        b1 = normalize_multipart(r1.body)
+        b2 = normalize_multipart(r2.body)
+        return b1 == b2
+    except Exception:
+        return False
+
+my_vcr.register_matcher('text_only', match_text_only)
+my_vcr.register_matcher("clean_multipart", multipart_body_matcher)
+
+RECORD_MODE = "new_episodes"
 SD3_API_KEY = os.getenv("SD3_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -38,7 +94,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 #         image.show()
 #         image.save(f"{category}{i}.png")
 
-@vcr.use_cassette('fixtures/vcr_cassettes/ollama.yaml', match_on=['method', 'uri', 'body'], record_mode="new_episodes")
+@my_vcr.use_cassette('fixtures/vcr_cassettes/ollama.yaml', match_on=['method', 'uri', 'body'], record_mode=RECORD_MODE)
 def call_ollama(prompt):
     headers = {"Content-Type": "application/json"}
     response = requests.post(
@@ -115,7 +171,7 @@ def generate_prompt_from_user_input():
     Now generate the JSON output. Don't say anything else.
     """.format(description)
 
-@vcr.use_cassette('fixtures/vcr_cassettes/sd3.yaml', match_on=['method', 'uri', 'body'], record_mode="new_episodes")
+@my_vcr.use_cassette('fixtures/vcr_cassettes/sd3.yaml', match_on=['method', 'uri', 'clean_multipart'], record_mode=RECORD_MODE)
 def call_sd3(prompt, output_filename="sd3_output"):
     # prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). in line for the Indiana jones ride at disneyland, with several items: apple, dole whip, star wand, red carpet"
 
@@ -157,13 +213,19 @@ def generate_images_for_scene_and_icons(scene_name, scene_description, scene_ite
 
     return filenames
 
-@vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml')
-def call_openai(image_filename, prompt):
+@my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'text_only'], record_mode=RECORD_MODE)
+def call_openai(image_filename_without_extension, prompt):
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
-    with open(f"./{image_filename}.jpeg", "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode("utf-8")
-        image_data_url = f"data:image/png;base64,{base64_image}"
+    full_image_path = f"./{image_filename_without_extension}.jpeg"
+
+    if not os.path.exists(full_image_path):
+        print(f"ERROR: Image file not found at {full_image_path} for OpenAI call.")
+        return "Error: Image file not found."
+
+    base64_image_data = get_base64_image(full_image_path)
+    
+    image_data_url = f"data:image/jpeg;base64,{base64_image_data}"
 
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -230,7 +292,7 @@ for scene_name in scene_names:
     print(item_coords_str)
     scene_to_items[scene_name] = {}
     for line in item_coords_str.splitlines():
-        parts = line.split(',')
+        parts = line.strip().split(',')
         if len(parts) == 3:
             item_name = parts[0].strip()
             x = float(parts[1].strip())
