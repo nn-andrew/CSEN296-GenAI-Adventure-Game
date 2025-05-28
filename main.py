@@ -18,6 +18,10 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
+RECORD_MODE = "all"
+SD3_API_KEY = os.getenv("SD3_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 # TODO: Function not needed anymore, can use match_text_only() to compare responses instead
 @lru_cache(maxsize=None)
 def get_base64_image(image_path):
@@ -70,10 +74,6 @@ def multipart_body_matcher(r1, r2):
 my_vcr.register_matcher('text_only', match_text_only)
 my_vcr.register_matcher("clean_multipart", multipart_body_matcher)
 
-RECORD_MODE = "new_episodes"
-SD3_API_KEY = os.getenv("SD3_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 # # Load local SDXL model
 # pipe = DiffusionPipeline.from_pretrained(
 #     "stabilityai/stable-diffusion-xl-base-1.0",
@@ -98,7 +98,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 #         image.show()
 #         image.save(f"{category}{i}.png")
 
-@my_vcr.use_cassette('fixtures/vcr_cassettes/ollama.yaml', match_on=['method', 'uri', 'body'], record_mode=RECORD_MODE)
+# @my_vcr.use_cassette('fixtures/vcr_cassettes/ollama.yaml', match_on=['method', 'uri', 'body'], record_mode=RECORD_MODE)
 def call_ollama(prompt):
     headers = {"Content-Type": "application/json"}
     response = requests.post(
@@ -122,11 +122,96 @@ def call_ollama(prompt):
 
 def generate_prompt_from_description(description):
     # prompt = f"Your response should follow the following format, and nothing else should be in your response: '[object1],[object2],[object3],[object4],[object5]'. In that format, list the 5 most important objects to depict this scene: {description}"
+
+    # return """You will be given a description of a point-and-click adventure game. Based on that description, generate a structured **valid JSON** object
+
+    # **The content in your JSON should reflect the imagery and theme of a game based on this description:**
+    # "{{description}}"
+
+    # - Output must be valid JSON — no comments, no trailing commas, all property names and string values in double quotes.
+    # - Just return the raw JSON inside triple backticks (```json).
+    # - Treat `{{{{like_this}}}}` as placeholders — not literal values.
+
+    # The JSON must include:
+
+    # 1. **A "scenes" key**, with:
+    #     - **Two scenes** that relate to the provided description, each with:
+    #         - "scene_description": a vivid prompt for SD3 image generation relating to this description: {{description}}.
+    #         - "items": a dictionary where keys are item names and values contain:
+    #             - "description": short (≤8 words), lightly humorous.
+    #             - "interactions": dictionary with interaction types (e.g., "talk", "use", "look", "pick up") as keys and strings as values.
+    #             - "leads_to": if it's a door, then value is the second scene, otherwise "n/a".
+    #         - One item **must** must be a **door** that leads to the second scene via `"leads_to"`.
+    #         - Each scene **must** have 2-3 items.
+    #         - The name of the **starting** scene must be prefixed with `"START_"`.
+    #         - First scene has `"is_locked": false`; second scene `"is_locked": true`.
+
+    # 2. **A "puzzles" key**, with:
+    #     - **A single puzzle**, with:
+    #         - "id": e.g., "puzzle_1"
+    #         - "type": one of "item_combination", "item_usage", "dialog", "environment"
+    #         - "description": max 8 words
+    #         - "completion_text": max 8 words
+    #         - "requirements": a list of `[interaction_type, item_name]` pairs — items must come from the first scene
+    #         - "result": must be:
+    #             ```json
+    #             "result": {{
+    #                 "unlocked_area": "{{{{name of the second scene}}}}"
+    #             }}
+    #             ```
+
+    # Respond with valid JSON inside a code block like this:
+    # ```json
+    # {{ ... }}""".format(description)
+
+    # Poor creativity and adherence to scene description
+    # return """You will be given a description of a point-and-click adventure game. Based on that description, generate a structured **valid JSON** object, strictly matching the following schema.
+
+    # **IMPORTANT:**
+    # - Output must be valid JSON — no comments, no trailing commas, all property names and string values in double quotes.
+    # - Do not explain anything — just return the raw JSON inside triple backticks (```json).
+    # - Treat `{{{{like_this}}}}` as placeholders — not literal values.
+
+    # The JSON must include:
+
+    # 1. **A "scenes" key**, with:
+    #     - **Two scenes**, each with:
+    #         - "scene_description": a vivid prompt for SD3 image generation.
+    #         - "items": a dictionary where keys are item names and values contain:
+    #             - "description": short (≤8 words), lightly humorous.
+    #             - "interactions": dictionary with interaction types (e.g., "talk", "use", "look", "pick up") as keys and strings as values.
+    #             - "leads_to": if it's a door, then value is the second scene, otherwise "n/a".
+    #         - One item **must** must be a **door** that leads to the second scene via `"leads_to"`.
+    #         - Each scene **must** have at least one item.
+    #         - The name of the **starting** scene must be prefixed with `"START_"`.
+    #         - First scene has `"is_locked": false`; second scene `"is_locked": true`.
+
+    # 2. **A "puzzles" key**, with:
+    #     - **A single puzzle**, with:
+    #         - "id": e.g., "puzzle_1"
+    #         - "type": one of "item_combination", "item_usage", "dialog", "environment"
+    #         - "description": max 8 words
+    #         - "completion_text": max 8 words
+    #         - "requirements": a list of `[interaction_type, item_name]` pairs — items must come from the first scene
+    #         - "result": must be:
+    #             ```json
+    #             "result": {{
+    #                 "unlocked_area": "{{{{name of the second scene}}}}"
+    #             }}
+    #             ```
+
+    # **Now, based on this description:**
+    # "{{description}}"
+
+    # Respond with valid JSON inside a code block like this:
+    # ```json
+    # {{ ... }}""".format(description)
+
     return """You will be given a description of a point-and-click adventure game. Based on that description, generate a structured JSON object that includes:
 
     1. Two scenes, each with:
-    - scene_description: a detailed prompt suitable for SD3 image generation.
-    - items: a dictionary where each key is the item name. one of the items has to be a path to the other scene (for example a door or walkway or alley)
+    - scene_description: a detailed prompt suitable for SD3 image generation
+    - items: a dictionary where each key is the item name. one of the items HAS to be a path to the other scene. **each scene >=3 items, at least 1 item is a person**
     - description: should be short with some light humor, 8 words or less
     - interactions: a dictionary where keys are interaction types (e.g., "talk", "use", "look", "pick up") and values are the corresponding dialogue or behavior
     - the name of the starting scene should be prefixed with "START_"
@@ -135,7 +220,7 @@ def generate_prompt_from_description(description):
     - id: a unique identifier like "puzzle_1"
     - type: one of "item_combination", "item_usage", "dialog", or "environment"
     - description: a short summary of the puzzle
-    - requirements: item(s), interaction(s), or conditions required to solve the puzzle.
+    - requirements: item(s), interaction(s), or conditions required to solve the puzzle. Requirements must ONLY use items in the first scene.
     - result: must be exactly:
     "result": {{
         "unlocked_area": {{name of scene unlocked}}
@@ -155,15 +240,17 @@ def generate_prompt_from_description(description):
                     "interactions": {{
                         {{usage_type}}: {{dialogue after performing the interaction}}
                     }}
+                    "leads_to": {{if the item is a path that leads to another scene, then value is the scene name, otherwise value is "n/a". AT LEAST one item has to lead to the other scene}}
                 }}
-            }}
+            }},
+            "is_locked": {{false for the first scene, otherwise true}},
+            "hint": {{hint dialogue for the related puzzle, written from the perspective of the main character, 8 words or less}},
         }},
     }},
-    "puzzles": [
-        {{
-            "id": {{puzzle_id}},
+    "puzzles": {{
+        {{puzzle_name}}: {{
             "type": {{usage_type}},
-            "description": {{Clue for the puzzle, 8 words or less}},
+            "hint": {{dialogue that hints at what to do, 8 words or less}},
             "completion_text: "{{Text to display when the puzzle is solved, 8 words or less}}",
             "requirements": [
                 [{{usage_type}}, {{item_name}}],
@@ -172,16 +259,18 @@ def generate_prompt_from_description(description):
                 "unlocked_area": {{scene_name}}
             }}
         }}
-    ]
+    }}
     }}
 
     Description: {}
-    Now generate the JSON output. Do not add any other text.
+    Now generate the JSON output, and make sure it's valid and parsable by Python's json.load(). Do not add any other text.
     """.format(description)
 
-@my_vcr.use_cassette('fixtures/vcr_cassettes/sd3.yaml', match_on=['method', 'uri', 'clean_multipart'], record_mode=RECORD_MODE)
+# @my_vcr.use_cassette('fixtures/vcr_cassettes/sd3.yaml', match_on=['method', 'uri', 'clean_multipart'], record_mode=RECORD_MODE)
 def call_sd3(prompt, output_filename="sd3_output"):
     # prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). in line for the Indiana jones ride at disneyland, with several items: apple, dole whip, star wand, red carpet"
+
+    print(f"prompt={prompt} ({type(prompt)}), output_filename={output_filename} ({type(output_filename)})")
 
     response = requests.post(
         f"https://api.stability.ai/v2beta/stable-image/generate/sd3",
@@ -192,6 +281,7 @@ def call_sd3(prompt, output_filename="sd3_output"):
         files={"none": ''},
         data={
             "prompt": prompt,
+            "aspect_ratio": "3:2",
             "output_format": "jpeg",
         },
     )
@@ -205,36 +295,47 @@ def call_sd3(prompt, output_filename="sd3_output"):
 def generate_images_for_scene_and_icons(scene_name, scene_description, scene_items):
     filenames = []
     
-    scene_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). {scene_description}. The following items are clearly visible: {', '.join(scene_items)}"
+    scene_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). {scene_description} Seen throughout the environment are {', '.join(scene_items)}"
     output_filename = f"scene_{scene_name}"
     filenames.append(output_filename)
 
     call_sd3(scene_prompt, output_filename=output_filename)
 
-    for item_name in scene_items:
-        item_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). {item_name}, plain black background"
-        output_filename = f"icon_{item_name.replace(' ', '_')}"
+    # TODO: uncomment this when implementing inventory
+    # for item_name in scene_items:
+    #     item_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). {item_name}, plain black background"
+    #     output_filename = f"icon_{item_name.replace(' ', '_')}"
 
-        call_sd3(item_prompt, output_filename=output_filename)
+    #     call_sd3(item_prompt, output_filename=output_filename)
 
-        filenames.append(output_filename)
+    #     filenames.append(output_filename)
 
     return filenames
 
-@my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'body'], record_mode=RECORD_MODE)
+# @my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'body'], record_mode=RECORD_MODE)
 def call_openai(prompt):
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
-    
+
     response = client.chat.completions.create(
         model="gpt-4",
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
+        messages=[{"role": "user", "content": prompt}],
     )
 
-    return response.choices[0].message.content
+    # get the raw text
+    content = response.choices[0].message.content
 
-@my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'text_only'], record_mode=RECORD_MODE)
+    data = json.loads(content)
+
+    # # now run your regex on that
+    # match = re.search(r"```json\n(.*?)```", content, re.DOTALL)
+    # if not match:
+    #     raise ValueError("No JSON block found")
+    # json_str = match.group(1)
+    # data = json.loads(json_str)
+
+    return data
+
+# @my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'text_only'], record_mode=RECORD_MODE)
 def call_openai_with_image(image_filename_without_extension, prompt):
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
@@ -269,7 +370,7 @@ def call_openai_with_image(image_filename_without_extension, prompt):
     return response.choices[0].message.content
 
 def get_item_coordinates_in_image(image_filename, item_names):
-    prompt = f"in terms of distance ratio between left and right, top and bottom of the image (starting from left and top), where are the following items? (Format your response as lines of object_name,x,y and nothing else in your response. For example, object1_name,0.5,0.5\nobject2_name,0.5,0.5) Items: {','.join(item_names)}"
+    prompt = f"in terms of distance ratio between left and right, top and bottom of the image (starting from left and top), where is the center of the following items? (Format your response as lines of object_name,x,y and nothing else in your response. For example, object1_name,0.5,0.5\nobject2_name,0.5,0.5) Items: {','.join(item_names)}. If you're not sure, just give your best guess."
     
     return call_openai_with_image(image_filename, prompt)
 
@@ -291,32 +392,39 @@ def main():
         desc = sys.stdin.read().strip()
 
     prompt = generate_prompt_from_description(desc)
-    openai_response_str = call_openai(prompt)
-    game_data = json.loads(openai_response_str)
+    unverified_game_json = call_openai(prompt)
+    prompt = "Fix any syntactical mistakes in this JSON structure (or return the original JSON if it's valid JSON) and ensure that at least one leads_to value under the first scene (the one under the item most likely to lead to the second scene) is set to the name of the second scene, don't include anything else in your reply:\n\n{}".format(unverified_game_json)
+    verified_game_json = call_openai(prompt)
+    game_data = verified_game_json
 
-    scenes = list(game_data["scenes"].items())
-    for scene_name, info in scenes:
+    def process_scene(scene_tuple):
+        scene_name, info = scene_tuple
         item_names = list(info["items"].keys())
-        filenames = generate_images_for_scene_and_icons(
-            scene_name, info["scene_description"], item_names
-        )
-
+        filenames = generate_images_for_scene_and_icons(scene_name, info["scene_description"], item_names)
         scene_filename = filenames[0]
-        item_coords_str = get_item_coordinates_in_image(scene_filename, item_names)
-        # scene_to_items[scene_name] = {}
-        for line in item_coords_str.splitlines():
-            parts = line.strip().split(',')
-            if len(parts) == 3:
-                item_name = parts[0].strip()
-                x = float(parts[1].strip())
-                y = float(parts[2].strip())
-                
+
+        if len(item_names) != 0:
+            item_coords_str = get_item_coordinates_in_image(scene_filename, item_names)
+
+            coords = {}
+            for line in item_coords_str.splitlines():
+                parts = line.strip().split(',')
+                if len(parts) == 3:
+                    item_name = parts[0].strip()
+                    x = float(parts[1].strip())
+                    y = float(parts[2].strip())
+                    coords[item_name] = (x, y)
+        
+        return scene_name, coords
+
+    with ThreadPoolExecutor() as executor:
+        futures = [executor.submit(process_scene, scene) for scene in game_data["scenes"].items()]
+        # Inject item coordinates
+        for future in as_completed(futures):
+            scene_name, coords = future.result()
+            for item_name, (x, y) in coords.items():
                 game_data["scenes"][scene_name]["items"][item_name]["coordinates"] = (x, y)
 
-                # scene_to_items[scene_name][item_name] = (x, y)
-
-
-    # write out enriched JSON (with coordinates already injected)
     with open("game_data.json", "w") as f:
         json.dump(game_data, f, indent=2)
 

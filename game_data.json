@@ -1,67 +1,106 @@
 {
   "scenes": {
-    "START_Pirate_Ship": {
-      "scene_description": "A picturesque pirate ship lazily floating down a river inside a grand mansion, chandeliers casting sparkling light over its majestic decks.",
+    "START_Tokyo_Skytree": {
+      "scene_description": "A breathtaking view of the Tokyo Skytree at night. Sky illuminated with the glistering tower lights. Shadow the hedgehog is seen observing his surroundings.",
       "items": {
-        "Ship_Wheel": {
-          "description": "Looks like it's pirating time!",
+        "Shadow_the_hedgehog": {
+          "description": "Fast shoes, faster attitude, slow on friendliness.",
           "interactions": {
-            "use": "The wheel spins freely. Perhaps it's not connected?",
-            "look": "A beautifully crafted wooden ship wheel, catching the light.",
-            "pick up": "It's bolted down. No pirating for you!"
+            "talk": "Shadow murmurs, 'Gotta find a way to that bank.'",
+            "look": "He's studying a map, looking serious."
           },
+          "leads_to": "n/a",
           "coordinates": [
-            0.48,
-            0.55
+            0.8,
+            0.8
           ]
         },
-        "Secret_Door": {
-          "description": "A concealed entrance. Quite mansion-y!",
+        "Tokyo_Skytree": {
+          "description": "A magnificent steel giant kissing the starry night sky.",
           "interactions": {
-            "use": "It's locked. Is there a key?",
-            "look": "A well-camouflaged secret door in the ship's hull.",
-            "pick up": "You cannot pick up a door. Nice try!"
+            "look": "It's beautiful, towering above everything else.",
+            "use": "Shadow says, 'Can't use this. Too conspicuous.'"
           },
+          "leads_to": "n/a",
           "coordinates": [
-            0.1,
-            0.45
+            0.55,
+            0.4
+          ]
+        },
+        "Path_to_bank": {
+          "description": "A shadowy path secretly leading to a distant bank.",
+          "interactions": {
+            "look": "This path... it's perfect for a subtle approach.",
+            "use": "Shadow bolts down the path, vanishing in the darkness."
+          },
+          "leads_to": "Bank_Heist_Scene",
+          "coordinates": [
+            0.3,
+            0.95
           ]
         }
-      }
+      },
+      "is_locked": false,
+      "hint": "'Hedgehog and a Map, what could go wrong?'"
     },
-    "Mansion_Interior": {
-      "scene_description": "The magnificent interior of the mansion, adorned with regal chandeliers and elegant furniture, looming over the river and the pirate ship below.",
+    "Bank_Heist_Scene": {
+      "scene_description": "A secluded bank surrounded by the quiet city night. Shadow arrives from a hidden entrance, poised for a heist.",
       "items": {
-        "Chandelier": {
-          "description": "Classy illumination!",
+        "Bank": {
+          "description": "Prime target. Chuckles in the face of normalcy.",
           "interactions": {
-            "use": "It's high. Even for a jump.",
-            "look": "A stunning chandelier. Crystal clear.",
-            "pick up": "You can't lift a chandelier! Seriously?"
+            "look": "'Looks secure. Just the way I like it.'",
+            "use": "Shadow grins, 'Time to have a little fun.'"
           },
+          "leads_to": "n/a",
+          "coordinates": [
+            0.75,
+            0.5
+          ]
+        },
+        "Dark_Alley": {
+          "description": "Conveniently provides the perfect cover.",
+          "interactions": {
+            "look": "'Its dark and cold. Just what I need.'",
+            "use": "'Not time to use this yet.'"
+          },
+          "leads_to": "n/a",
+          "coordinates": [
+            0.25,
+            0.5
+          ]
+        },
+        "Security_Guard": {
+          "description": "Sleep deprived and irritated. Well, this is awkward.",
+          "interactions": {
+            "talk": "'Hey, you're not supposed to be here!'",
+            "look": "'This guy is going to be annoying...'"
+          },
+          "leads_to": "n/a",
           "coordinates": [
             0.5,
-            0.2
+            0.5
           ]
         }
-      }
+      },
+      "is_locked": true,
+      "hint": "'Bankin' on Shadow, eh?'"
     }
   },
-  "puzzles": [
-    {
-      "id": "puzzle_1",
-      "type": "item_usage",
-      "description": "Unlock the secret door",
-      "completion_text": "Ahoy, door's open!",
+  "puzzles": {
+    "puzzle_1": {
+      "type": "dialog",
+      "hint": "'Maps can be surprisingly talkative.'",
+      "completion_text": "'Ran like the wind, didn't I?'",
       "requirements": [
         [
-          "use",
-          "Ship_Wheel"
+          "talk",
+          "Shadow_the_hedgehog"
         ]
       ],
       "result": {
-        "unlocked_area": "Mansion_Interior"
+        "unlocked_area": "Bank_Heist_Scene"
       }
     }
-  ]
+  }
 }
