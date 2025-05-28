@@ -18,9 +18,52 @@ INTERACTION_TEXT_POS = (WINDOW_WIDTH//2, 20)
 
 data_file = "game_data.json"
 
+def get_user_text(screen, font, prompt_text, width, height):
+    clock = pygame.time.Clock()
+    input_text = ""
+    prompt_surface = font.render(prompt_text, True, (255, 255, 255))
+    prompt_rect = prompt_surface.get_rect(midtop=(width//2, 50))
+    active = True
+    while active:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    active = False
+                elif event.key == pygame.K_BACKSPACE:
+                    input_text = input_text[:-1]
+                else:
+                    input_text += event.unicode
+        screen.fill((0, 0, 0))
+        screen.blit(prompt_surface, prompt_rect)
+        # Render the current input text
+        input_surface = font.render(input_text, True, (255, 255, 255))
+        input_rect = input_surface.get_rect(midtop=(width//2, prompt_rect.bottom + 20))
+        screen.blit(input_surface, input_rect)
+        pygame.display.flip()
+        clock.tick(30)
+    return input_text
+
+# Initialize game
+pygame.init()
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+pygame.display.set_caption("Point-and-Click Adventure")
+clock = pygame.time.Clock()
+
+# Load fonts
+action_button_font = pygame.font.SysFont("None", 68)
+interaction_text_font = pygame.font.SysFont(None, 48)
+font = pygame.font.SysFont(None, 48)
+
 if not DEBUG_GAMEPLAY:
-    # --- Step 1: Prompt and generate game data ---
-    description = input("Enter a description for your point-and-click adventure: ")
+    # Remove old game data
+    if os.path.exists("game_data.json"):
+        os.remove("game_data.json")
+
+    # description = input("Enter a description for your point-and-click adventure: ")
+    description = get_user_text(screen, font, "Describe your point-and-click adventure:", WINDOW_WIDTH, WINDOW_HEIGHT)
     # Run main.py and pass description via stdin
     subprocess.run([sys.executable, "main.py"], input=description + "\n", text=True)
 
@@ -32,24 +75,13 @@ if not DEBUG_GAMEPLAY:
 with open(data_file, 'r') as f:
     game_data = json.load(f)
 
-# --- Step 2: Initialize Pygame ---
-pygame.init()
-screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-pygame.display.set_caption("Point-and-Click Adventure")
-clock = pygame.time.Clock()
-
-# Load fonts
-action_button_font = pygame.font.SysFont("None", 68)
-interaction_text_font = pygame.font.SysFont(None, 48)
-font = pygame.font.SysFont(None, 48)
-
 # Load puzzles
 puzzles = game_data.get("puzzles", {})
 
-# Represent remaining requirements for each puzzle
+# Remaining requirements for each puzzle
 puzzles_progress = puzzles
 
-# --- Step 3: Load first scene ---
+# Load first scene
 scenes = game_data.get("scenes", {})
 
 current_scene = list(scenes.keys())[0]
@@ -105,7 +137,7 @@ for name, info in scene_info.get("items", {}).items():
     rect.center = (x, y)
     item_rects[name] = rect
 
-# --- Main Loop ---
+# Main loop
 running = True
 while running:
     for event in pygame.event.get():
@@ -216,8 +248,6 @@ while running:
 
                     break
 
-
-
     # Clear screen
     screen.fill((0, 0, 0))
 
@@ -265,18 +295,3 @@ while running:
     clock.tick(60)
 
 pygame.quit()
-
-'''
-if the item clicked's path_to value != "n/a"
-    if path_to scene is locked
-        print("The path is blocked...")
-    else:
-        background_image = path_to scene
-
-
-hover over item shows text:
-current_action + " " + item
-
-'''
-
-# a pirate ship floating down a river inside a big mansion

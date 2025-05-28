@@ -1,55 +1,19 @@
-Player sprite: Basic sprite sheet from itch.io
+1. Create a .env file with the following:
+SD3_API_KEY={YOUR STABILITY AI API KEY}
+OPENAI_API_KEY={YOUR OPENAI API KEY}
 
-Llama3:8b
-- Generate map descriptions
-- Generate item icons 
+2. Run in terminal:
+python3 -m venv venv
 
-->
+3. Run in terminal:
+source ./venv/bin/activate
 
-SDXL
-- Background image generation
-- Generate multiple rooms
-*** SWITCH TO OPENAI DALLE3 FOR FASTER, HIGHER QUALITY ***
+4. Run in terminal:
+pip install -r requirements.txt
 
-->
+5. Run in terminal:
+python3 game.py
 
-David Kadish: Style Transfer for Object Detection in Art
-- Object detection for stylized images (artwork)
+6. In terminal it will say "Enter a description for your point-and-click adventure: ", type in your desired scenario
 
--> 
-
-(Hard code unity script that places objects in the scene)
-
-->
-
-Llama3:8b
-- LLM
-- For spatial placement of level exits
-- For generating items that can be used for some simple puzzle (Item actions: COMBINE, INTERACT, TALK)
-
--------------------
-
-User Journey:
-
-User types text description
-- (Llama3 to optimize user input for SDXL)
-
-System generates series of items for puzzle, with interaction modes: TALK,TAKE,COMBINE(e.g. television + remote)
-- Llama3
-
-System generates scenes containing those items
-- Input: Llama3 object names -> Output: SDXL item icons
-- Input: Llama3 scene descriptions -> Output: SDXL scenes
-
-System generates 
-
-
-
-
-Nancy drew is investigating the roman colosseum at night. There are fireworks in the sky
-
-mystical fountain in a dark cave with ambient light with foliage
-
-
-
-TODO: move images into a ./res folder
+7. Wait ~1 minute for game window to appear
