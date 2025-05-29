@@ -7,14 +7,14 @@ import pygame
 from enum import Enum
 
 DEBUG_GAMEPLAY = False
-# DEBUG_GAMEPLAY = True
+DEBUG_GAMEPLAY = True
 
 DEBUG_ITEMS = False
 # DEBUG_ITEMS = True
 
 WINDOW_WIDTH, WINDOW_HEIGHT = 1000, 800
 RGB_PINK = (255, 105, 180)
-INTERACTION_TEXT_POS = (WINDOW_WIDTH//2, 20)
+INTERACTION_TEXT_POS = (WINDOW_WIDTH//2, 25)
 
 data_file = "game_data.json"
 
@@ -75,11 +75,17 @@ if not DEBUG_GAMEPLAY:
 with open(data_file, 'r') as f:
     game_data = json.load(f)
 
+# Ensure requirements is a list of lists (e.g. [['use', 'door']] instead of ['use', 'door'])
+for puzzle_name in game_data["puzzles"].keys():
+    if type(game_data["puzzles"][puzzle_name]["requirements"][0]) == str:
+        game_data["puzzles"][puzzle_name]["requirements"] = [game_data["puzzles"][puzzle_name]["requirements"]]
+
 # Load puzzles
 puzzles = game_data.get("puzzles", {})
 
 # Remaining requirements for each puzzle
 puzzles_progress = puzzles
+
 
 # Load first scene
 scenes = game_data.get("scenes", {})
@@ -127,7 +133,7 @@ hint_surf = font.render("Hint", False, (255, 255, 255))
 hint_button_rect = hint_surf.get_rect(topleft=(x_offset, btn_y))
 
 # Prepare item rects
-ITEM_SIZE = 100
+ITEM_SIZE = 140
 item_rects = {}
 for name, info in scene_info.get("items", {}).items():
     coords = info.get("coordinates", [0.5, 0.5])
@@ -207,23 +213,26 @@ while running:
                         break
                     else:
                         # Check if current (action, item) matches any puzzle requirements
+                        stop_iteration = False
                         for puzzle_name in puzzles_progress.keys():
+                            if len(puzzles_progress[puzzle_name]["requirements"]) == 0:
+                                # Unlock scene
+                                unlocked_scene = puzzles[puzzle_name]["result"]["unlocked_area"]
+                                game_data["scenes"][unlocked_scene]["is_locked"] = False
+
+                                del puzzles_progress[puzzle_name]
+                                break
                             for requirement in puzzles_progress[puzzle_name]["requirements"]:
                                 requirement_action_name, requirement_item_name = requirement
                                 if (current_action, item_name) == (requirement_action_name, requirement_item_name):
                                     # If the current action matches a puzzle requirement, remove the requirement
                                     puzzles_progress[puzzle_name]["requirements"] = [req for req in puzzles_progress[puzzle_name]["requirements"] if req != [current_action, item_name]]
-
-                                    # Unlock scene
-                                    unlocked_scene = puzzles[puzzle_name]["result"]["unlocked_area"]
-                                    game_data["scenes"][unlocked_scene]["is_locked"] = False
-
+                                    
                                     # Display puzzle completion text
                                     interaction_text = interaction_text_font.render(
                                         puzzles_progress[puzzle_name]["completion_text"], False, (255, 204, 102)
                                     )
                                     interaction_text_rect = interaction_text.get_rect(center=INTERACTION_TEXT_POS)
-                                    break
 
                     if leads_to != "n/a" and game_data["scenes"][leads_to]["is_locked"] == True:
                         hint = scene_info.get("hint", "No hint available.")
@@ -242,9 +251,9 @@ while running:
                     cursor_img = pygame.transform.scale(cursor_img, (50, 50))
 
                     if current_action:
-                        hover_text = font.render((current_action + " " + ' '.join(item_name.split('_'))).title(), True, (0, 255, 255))
+                        hover_text = font.render((current_action + " " + ' '.join(item_name.split('_'))).title(), False, (0, 255, 255))
                     else:
-                        hover_text = font.render("", True, (255, 255, 255))
+                        hover_text = font.render("", False, (255, 255, 255))
 
                     break
 

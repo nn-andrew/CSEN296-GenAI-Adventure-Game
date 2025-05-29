@@ -2,6 +2,8 @@ import argparse
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from datetime import datetime
+
 import requests
 import json
 # from diffusers import DiffusionPipeline
@@ -76,6 +78,8 @@ my_vcr.register_matcher("clean_multipart", multipart_body_matcher)
 
 # @my_vcr.use_cassette('fixtures/vcr_cassettes/ollama.yaml', match_on=['method', 'uri', 'body'], record_mode=RECORD_MODE)
 def call_ollama(prompt):
+    print("Start Llama3 call at", datetime.now().time().strftime("%H:%M:%S"))
+
     headers = {"Content-Type": "application/json"}
     response = requests.post(
         "http://localhost:11434/api/generate",
@@ -93,6 +97,8 @@ def call_ollama(prompt):
         actual_response = data['response']
 
         return actual_response
+    
+    print("Start Llama3 call at", datetime.now().time().strftime("%H:%M:%S"))
 
     return "Error: " + str(response.status_code) + " " + response.text
 
@@ -100,8 +106,8 @@ def generate_prompt_from_description(description):
     return """You will be given a description of a point-and-click adventure game. Based on that description, generate a structured JSON object that includes:
 
     1. Two scenes, each with:
-    - scene_description: a detailed prompt suitable for SD3 image generation
-    - items: a dictionary where each key is the item name. one of the items HAS to be a path to the other scene. **each scene >=3 items, at least 1 item is a person**
+    - scene_description: a brief description of the scene
+    - items: a dictionary where each key is the item name. one of the items HAS to be a path to the other scene. **each scene has 7 items, 1 or 2 items are people**
     - description: should be short with some light humor, 8 words or less
     - interactions: a dictionary where keys are interaction types (interaction types are "talk", "use", "look", and "pick up") and values are the corresponding dialogue or behavior
     - the name of the starting scene should be prefixed with "START_"
@@ -123,7 +129,7 @@ def generate_prompt_from_description(description):
     {{
     "scenes": {{
         {{scene_name}}: {{
-            "scene_description": {{Descriptive text-to-image prompt for this scene for SD3}},
+            "scene_description": {{brief description of this scene}},
             "items": {{
                 {{item_name}}: {{
                     "description": {{Short humorous description}},
@@ -158,11 +164,12 @@ def generate_prompt_from_description(description):
 
 # @my_vcr.use_cassette('fixtures/vcr_cassettes/sd3.yaml', match_on=['method', 'uri', 'clean_multipart'], record_mode=RECORD_MODE)
 def call_sd3(prompt, output_filename="sd3_output"):
+    print("Start SD3 call at", datetime.now().time().strftime("%H:%M:%S"))
 
-    print(f"prompt={prompt} ({type(prompt)}), output_filename={output_filename} ({type(output_filename)})")
+    # print(f"prompt={prompt} ({type(prompt)}), output_filename={output_filename} ({type(output_filename)})")
 
     response = requests.post(
-        f"https://api.stability.ai/v2beta/stable-image/generate/sd3",
+        f"https://api.stability.ai/v2beta/stable-image/generate/ultra",
         headers={
             "authorization": f"Bearer {SD3_API_KEY}",
             "accept": "image/*"
@@ -175,6 +182,8 @@ def call_sd3(prompt, output_filename="sd3_output"):
         },
     )
 
+    print("Finish SD3 call at", datetime.now().time().strftime("%H:%M:%S"))
+
     if response.status_code == 200:
         with open(f"./{output_filename}.jpeg", 'wb') as file:
             file.write(response.content)
@@ -184,9 +193,11 @@ def call_sd3(prompt, output_filename="sd3_output"):
 def generate_images_for_scene_and_icons(scene_name, scene_description, scene_items):
     filenames = []
     
-    scene_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). {scene_description} Seen throughout the environment are {', '.join(scene_items)}"
+    scene_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). The scene includes {', '.join(scene_items)}. {scene_description}"
     output_filename = f"scene_{scene_name}"
     filenames.append(output_filename)
+
+    print(scene_name + " / " + scene_prompt + " / " + str(scene_items))
 
     call_sd3(scene_prompt, output_filename=output_filename)
 
@@ -194,6 +205,8 @@ def generate_images_for_scene_and_icons(scene_name, scene_description, scene_ite
 
 # @my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'body'], record_mode=RECORD_MODE)
 def call_openai(prompt):
+    print("Start GPT-4 text call at", datetime.now().time().strftime("%H:%M:%S"))
+
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     response = client.chat.completions.create(
@@ -204,10 +217,14 @@ def call_openai(prompt):
     # Get the raw text
     content = response.choices[0].message.content
 
+    print("Finish GPT-4 text at", datetime.now().time().strftime("%H:%M:%S"))
+
     return content
 
 # @my_vcr.use_cassette('fixtures/vcr_cassettes/openai.yaml', match_on=['method', 'uri', 'text_only'], record_mode=RECORD_MODE)
 def call_openai_with_image(image_filename_without_extension, prompt):
+    print("Start GPT-4 image analysis call at", datetime.now().time().strftime("%H:%M:%S"))
+
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     full_image_path = f"./{image_filename_without_extension}.jpeg"
@@ -238,10 +255,12 @@ def call_openai_with_image(image_filename_without_extension, prompt):
         ]
     )
 
+    print("Finish GPT-4 image analysis call at", datetime.now().time().strftime("%H:%M:%S"))
+
     return response.choices[0].message.content
 
 def get_item_coordinates_in_image(image_filename, item_names):
-    prompt = f"in terms of distance ratio between left and right, top and bottom of the image (starting from left and top), where is the center of the following items? (Format your response as lines of object_name,x,y and nothing else in your response. For example, object1_name,0.5,0.5\nobject2_name,0.5,0.5) Items: {','.join(item_names)}. If you're not sure, just give your best guess."
+    prompt = f"in terms of distance ratio between left and right, top and bottom of the image (starting from left and top), where is the center of the following items? (Format your response as lines of object_name,x,y and nothing else in your response. For example, object1_name,0.52,0.57\nobject2_name,0.32,0.78) Items: {','.join(item_names)}. If you're not sure, just give your best guess."
     
     return call_openai_with_image(image_filename, prompt)
 
@@ -264,8 +283,10 @@ def main():
 
     prompt = generate_prompt_from_description(desc)
     unverified_game_json = call_openai(prompt)
-    prompt = "Fix any syntactical mistakes in this JSON structure, including removing trailing commas that would cause errors (or return the original JSON if it's valid JSON) and ensure that at least one leads_to value under the first scene (the one under the item most likely to lead to the second scene) is set to the name of the second scene. Ensure the first element of the 'requirements' key is 'talk', 'use', 'look', or 'pick up'. Don't include anything else in your reply: {}".format(unverified_game_json)
+    # unverified_game_json = call_ollama(prompt)
+    prompt = "Fix any syntactical mistakes in this JSON structure, including removing trailing commas that would cause errors, **if it's already valid JSON then return it unchanged, don't say anything else in your reply**. Ensure that at least one leads_to value under the first scene (the one under the item most likely to lead to the second scene) is set to the name of the second scene. Ensure the first element of the 'requirements' key is 'talk', 'use', 'look', or 'pick up': {}".format(unverified_game_json)
     verified_game_json_str = call_openai(prompt)
+    # verified_game_json_str = call_ollama(prompt)
     match = re.search(r"```json\n(.*?)```", verified_game_json_str, re.DOTALL)
     if match:
         payload = match.group(1)
@@ -287,9 +308,12 @@ def main():
                 parts = line.strip().split(',')
                 if len(parts) == 3:
                     item_name = parts[0].strip()
-                    x = float(parts[1].strip())
-                    y = float(parts[2].strip())
-                    coords[item_name] = (x, y)
+                    if parts[1] == "n/a" or parts[2] == "n/a":
+                        coords[item_name] = (0.5, 0.5)
+                    else:
+                        x = float(parts[1].strip())
+                        y = float(parts[2].strip())
+                        coords[item_name] = (x, y)
 
         return scene_name, coords
 
