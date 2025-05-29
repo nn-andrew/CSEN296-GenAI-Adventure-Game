@@ -7,7 +7,7 @@ import pygame
 from enum import Enum
 
 DEBUG_GAMEPLAY = False
-DEBUG_GAMEPLAY = True
+# DEBUG_GAMEPLAY = True
 
 DEBUG_ITEMS = False
 # DEBUG_ITEMS = True

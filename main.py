@@ -106,7 +106,7 @@ def generate_prompt_from_description(description):
     return """You will be given a description of a point-and-click adventure game. Based on that description, generate a structured JSON object that includes:
 
     1. Two scenes, each with:
-    - scene_description: a brief description of the scene
+    - scene_description: a beautiful description of the scene that mentions the items present
     - items: a dictionary where each key is the item name. one of the items HAS to be a path to the other scene. **each scene has 7 items, 1 or 2 items are people**
     - description: should be short with some light humor, 8 words or less
     - interactions: a dictionary where keys are interaction types (interaction types are "talk", "use", "look", and "pick up") and values are the corresponding dialogue or behavior
@@ -128,10 +128,10 @@ def generate_prompt_from_description(description):
 
     {{
     "scenes": {{
-        {{scene_name}}: {{
-            "scene_description": {{brief description of this scene}},
+        {{scene name}}: {{
+            "scene_description": {{beautiful description of this scene}},
             "items": {{
-                {{item_name}}: {{
+                {{item name}}: {{
                     "description": {{Short humorous description}},
                     "interactions": {{
                         {{interaction_type}}: {{dialogue after performing the interaction}}
@@ -149,10 +149,10 @@ def generate_prompt_from_description(description):
             "hint": {{dialogue that hints at what to do, 8 words or less}},
             "completion_text: "{{Text to display when the puzzle is solved, 8 words or less}}",
             "requirements": [
-                [{{interaction_type}}, {{item_name}}],
+                [{{interaction_type}}, {{item name}}],
             ],
             "result": {{
-                "unlocked_area": {{scene_name}}
+                "unlocked_area": {{scene name}}
             }}
         }}
     }}
@@ -193,7 +193,7 @@ def call_sd3(prompt, output_filename="sd3_output"):
 def generate_images_for_scene_and_icons(scene_name, scene_description, scene_items):
     filenames = []
     
-    scene_prompt = f"Game pixel art VGA 90’s style (like secret of monkey island). The scene includes {', '.join(scene_items)}. {scene_description}"
+    scene_prompt = f"Aesthetic pixel game art VGA 90’s style. {scene_description}"
     output_filename = f"scene_{scene_name}"
     filenames.append(output_filename)
 
@@ -284,7 +284,7 @@ def main():
     prompt = generate_prompt_from_description(desc)
     unverified_game_json = call_openai(prompt)
     # unverified_game_json = call_ollama(prompt)
-    prompt = "Fix any syntactical mistakes in this JSON structure, including removing trailing commas that would cause errors, **if it's already valid JSON then return it unchanged, don't say anything else in your reply**. Ensure that at least one leads_to value under the first scene (the one under the item most likely to lead to the second scene) is set to the name of the second scene. Ensure the first element of the 'requirements' key is 'talk', 'use', 'look', or 'pick up': {}".format(unverified_game_json)
+    prompt = "Fix any syntactical mistakes in this JSON structure, including removing trailing commas that would cause errors, **if it's already valid JSON then return it unchanged, don't say anything else in your reply**. Ensure that at least one leads_to value under the first scene (the one under the item most likely to lead to the second scene) is set to the name of the second scene. Ensure the first element of the 'requirements' key is 'talk', 'use', 'look', or 'pick up'. Ensure that the puzzle only uses items found in the starting scene: {}".format(unverified_game_json)
     verified_game_json_str = call_openai(prompt)
     # verified_game_json_str = call_ollama(prompt)
     match = re.search(r"```json\n(.*?)```", verified_game_json_str, re.DOTALL)
